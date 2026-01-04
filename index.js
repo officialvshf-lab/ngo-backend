@@ -33,3 +33,9 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log("Server started on port", PORT);
 });
+
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("🚨 UNHANDLED PROMISE REJECTION");
+  console.error(reason);
+});

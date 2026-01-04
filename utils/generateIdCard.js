@@ -1,58 +1,69 @@
-const { createCanvas, loadImage } = require("canvas");
-const path = require("path");
 const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
+const cloudinary = require("./cloudinary");
+const axios = require("axios");
 
-const generateIdCard = async (member) => {
-  const width = 600;
-  const height = 350;
+module.exports = async function generateIdCardPdf(member) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const dir = path.join(__dirname, "../temp");
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir);
 
-  const canvas = createCanvas(width, height);
-  const ctx = canvas.getContext("2d");
+      const pdfPath = path.join(dir, `ID-${member._id}.pdf`);
+      const doc = new PDFDocument({ size: [350, 220], margin: 10 });
 
-  // Background
-  ctx.fillStyle = "#f4f4f4";
-  ctx.fillRect(0, 0, width, height);
+      const stream = fs.createWriteStream(pdfPath);
+      doc.pipe(stream);
 
-  // Border
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(0, 0, width, height);
+      /* ================= HEADER ================= */
+      doc
+        .rect(0, 0, 350, 50)
+        .fill("#ff6600");
 
-  // NGO Name
-  ctx.fillStyle = "#000";
-  ctx.font = "bold 24px Arial";
-  ctx.fillText("NGO MEMBERSHIP ID CARD", 140, 40);
+      doc
+        .fillColor("#fff")
+        .fontSize(16)
+        .text("NGO MEMBERSHIP ID CARD", 20, 18);
 
-  // Photo
-  const photoPath = path.join(
-    __dirname,
-    "..",
-    member.photo.replace("/uploads", "uploads")
-  );
+      /* ================= PHOTO ================= */
+      const photoRes = await axios.get(member.photo, {
+        responseType: "arraybuffer"
+      });
 
-  const photo = await loadImage(photoPath);
-  ctx.drawImage(photo, 30, 70, 120, 150);
+      doc.image(photoRes.data, 20, 70, {
+        width: 70,
+        height: 90
+      });
 
-  // Member details
-  ctx.font = "16px Arial";
-  ctx.fillText(`Name: ${member.fullName}`, 180, 90);
-  ctx.fillText(`Father: ${member.fatherName}`, 180, 120);
-  ctx.fillText(`Gender: ${member.gender}`, 180, 150);
-  ctx.fillText(`Mobile: ${member.mobile}`, 180, 180);
-  ctx.fillText(`Member Type: ${member.membershipType}`, 180, 210);
+      /* ================= DETAILS ================= */
+      doc
+        .fillColor("#000")
+        .fontSize(10)
+        .text(`Name: ${member.fullName}`, 110, 75)
+        .text(`Father: ${member.fatherName}`, 110, 92)
+        .text(`Membership: ${member.membershipType}`, 110, 109)
+        .text(`Mobile: ${member.mobile}`, 110, 126)
+        .text(`State: ${member.state}`, 110, 143)
+        .text(`ID: ${member._id}`, 110, 160);
 
-  // ID Number
-  ctx.font = "bold 16px Arial";
-  ctx.fillText(`ID: ${member._id}`, 180, 250);
+      doc.end();
 
-  // Save file
-  const fileName = `idcard-${member._id}.png`;
-  const outputPath = path.join(__dirname, "..", "uploads", "idcards", fileName);
+      stream.on("finish", async () => {
+        /* ============ UPLOAD TO CLOUDINARY (PDF) ============ */
+        const upload = await cloudinary.uploader.upload(pdfPath, {
+          resource_type: "raw",
+          folder: "ngo_id_cards",
+          public_id: `ID_${member._id}`
+        });
 
-  const buffer = canvas.toBuffer("image/png");
-  fs.writeFileSync(outputPath, buffer);
+        fs.unlinkSync(pdfPath); // cleanup
 
-  return `/uploads/idcards/${fileName}`;
+        resolve(upload.secure_url); // PDF URL
+      });
+
+    } catch (err) {
+      reject(err);
+    }
+  });
 };
-
-module.exports = generateIdCard;

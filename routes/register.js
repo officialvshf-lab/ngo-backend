@@ -1,57 +1,17 @@
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
 const Member = require("../models/Member");
+const cloudinary = require("../utils/cloudinary");
 
 const router = express.Router();
 
 /* ======================================================
-   MULTER CONFIGURATION
+   MULTER CONFIG (MEMORY STORAGE FOR CLOUDINARY)
 ====================================================== */
 
-// Storage setup
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.fieldname === "photo") {
-      cb(null, "uploads/photos");
-    } else if (file.fieldname === "idProof") {
-      cb(null, "uploads/idproofs");
-    } else if (file.fieldname === "paymentScreenshot") {
-      cb(null, "uploads/payments");
-    } else {
-      cb(new Error("Invalid file field"), null);
-    }
-  },
-  filename: (req, file, cb) => {
-    cb(
-      null,
-      Date.now() +
-        "-" +
-        Math.round(Math.random() * 1e9) +
-        path.extname(file.originalname)
-    );
-  }
-});
-
-// File filter (images + pdf)
-// const fileFilter = (req, file, cb) => {
-//   const allowedTypes = [
-//     "image/jpeg",
-//     "image/png",
-//     "image/jpg",
-//     "application/pdf"
-//   ];
-
-//   if (allowedTypes.includes(file.mimetype)) {
-//     cb(null, true);
-//   } else {
-//     cb(new Error("Invalid file type"), false);
-//   }
-// };
-
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
-  // allow images + pdf
   if (
     file.mimetype.startsWith("image/") ||
     file.mimetype === "application/pdf"
@@ -66,7 +26,6 @@ const fileFilter = (req, file, cb) => {
     );
   }
 };
-
 
 const upload = multer({
   storage,
@@ -89,16 +48,54 @@ router.post(
     try {
       /* ========= REQUIRED FILE CHECK ========= */
       if (
-        !req.files ||
-        !req.files.photo ||
-        !req.files.idProof ||
-        !req.files.paymentScreenshot
+        !req.files?.photo ||
+        !req.files?.idProof ||
+        !req.files?.paymentScreenshot
       ) {
         return res.status(400).json({
           success: false,
           message: "Photo, ID Proof and Payment Screenshot are required"
         });
       }
+
+      /* ========= DUPLICATE PROTECTION ========= */
+      const existing = await Member.findOne({
+        mobile: req.body.mobile
+      });
+
+      if (existing) {
+        return res.status(400).json({
+          success: false,
+          message: "This mobile number is already registered"
+        });
+      }
+
+      /* ========= CLOUDINARY UPLOAD HELPER ========= */
+      const uploadToCloudinary = async (file, folder) => {
+        return await cloudinary.uploader.upload(
+          `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+          {
+            folder,
+            resource_type: "auto"
+          }
+        );
+      };
+
+      /* ========= UPLOAD FILES ========= */
+      const photoUpload = await uploadToCloudinary(
+        req.files.photo[0],
+        "ngo/photos"
+      );
+
+      const idProofUpload = await uploadToCloudinary(
+        req.files.idProof[0],
+        "ngo/idproofs"
+      );
+
+      const paymentUpload = await uploadToCloudinary(
+        req.files.paymentScreenshot[0],
+        "ngo/payments"
+      );
 
       /* ========= CREATE MEMBER ========= */
       const member = new Member({
@@ -115,10 +112,10 @@ router.post(
         membershipType: req.body.membershipType,
         amount: req.body.amount,
 
-        // ✅ IMPORTANT: SAVE FULL RELATIVE PATH
-        photo: `/uploads/photos/${req.files.photo[0].filename}`,
-        idProof: `/uploads/idproofs/${req.files.idProof[0].filename}`,
-        paymentScreenshot: `/uploads/payments/${req.files.paymentScreenshot[0].filename}`,
+        // ✅ CLOUDINARY URLs
+        photo: photoUpload.secure_url,
+        idProof: idProofUpload.secure_url,
+        paymentScreenshot: paymentUpload.secure_url,
 
         paymentStatus: "pending"
       });
