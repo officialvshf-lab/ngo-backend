@@ -1,7 +1,6 @@
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const Member = require("../models/Member");
-const generateIdCard = require("../utils/generateIdCard");
 const processAfterApproval = require("../utils/processAfterApproval");
 
 const router = express.Router();
@@ -9,6 +8,7 @@ const router = express.Router();
 /* ================= ADMIN AUTH ================= */
 const adminAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
+
   if (!authHeader) {
     return res.status(401).json({ message: "No token provided" });
   }
@@ -23,80 +23,86 @@ const adminAuth = (req, res, next) => {
   }
 };
 
-/* ================= GET MEMBERS ================= */
+/* ======================================================
+   GET MEMBERS (PENDING / APPROVED / REJECTED / ALL)
+====================================================== */
 router.get("/members", adminAuth, async (req, res) => {
-  const status = req.query.status;
-  const query = status ? { paymentStatus: status } : {};
-  const members = await Member.find(query).sort({ createdAt: -1 });
-  res.json(members);
-});
-
-/* ================= APPROVE MEMBER ================= */
-// router.post("/approve/:id", adminAuth, async (req, res) => {
-//   try {
-//     const member = await Member.findById(req.params.id);
-//     if (!member) return res.status(404).json({ message: "Member not found" });
-
-//     // ✅ APPROVE FIRST
-//     member.paymentStatus = "approved";
-//     await member.save();
-
-//     // ✅ GENERATE ID CARD (CLOUDINARY)
-//     try {
-//       const idCardUrl = await generateIdCard(member);
-//       member.idCardPath = idCardUrl;
-//       await member.save();
-//       console.log("🪪 ID Card uploaded:", idCardUrl);
-//     } catch (e) {
-//       console.error("⚠️ ID Card failed:", e.message);
-//     }
-
-//     res.json({ success: true });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Server error" });
-//   }
-// });
-
-
-
-router.post("/approve/:id", adminAuth, async (req, res) => {
   try {
-    const member = await Member.findById(req.params.id);
-    if (!member) {
-      return res.status(404).json({ message: "Member not found" });
-    }
+    const status = req.query.status;
 
-    // ✅ APPROVE IMMEDIATELY (FAST RESPONSE)
-    member.paymentStatus = "approved";
-    await member.save();
+    // ✅ IMPORTANT FIX: approvalStatus + UPPERCASE
+    const query = status
+      ? { approvalStatus: status.toUpperCase() }
+      : {};
 
-    // 🔥 BACKGROUND PROCESS (NO BLOCKING)
-    processAfterApproval(member).catch(err => {
-      console.error("Background approval error:", err);
-    });
+    const members = await Member.find(query).sort({ createdAt: -1 });
 
-    // ✅ INSTANT RESPONSE TO ADMIN
     res.json({
       success: true,
-      message: "Approved. ID card & email processing in background."
+      members
     });
-
   } catch (err) {
-    console.error("Approve route error:", err);
+    console.error("Admin members error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
 
+/* ======================================================
+   APPROVE MEMBER
+====================================================== */
+router.post("/approve/:id", adminAuth, async (req, res) => {
+  try {
+    const member = await Member.findById(req.params.id);
 
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
 
-/* ================= REJECT ================= */
+    // ✅ UPDATE STATUS
+    member.approvalStatus = "APPROVED";
+    member.approvedAt = new Date();
+    member.approvedBy = "ADMIN";
+    await member.save();
+
+    // 🔥 BACKGROUND TASK (ID CARD + EMAIL)
+    processAfterApproval(member).catch((err) =>
+      console.error("Background process error:", err)
+    );
+
+    res.json({
+      success: true,
+      message: "Member approved successfully"
+    });
+  } catch (err) {
+    console.error("Approve error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/* ======================================================
+   REJECT MEMBER
+====================================================== */
 router.post("/reject/:id", adminAuth, async (req, res) => {
-  await Member.findByIdAndUpdate(req.params.id, {
-    paymentStatus: "rejected"
-  });
+  try {
+    const member = await Member.findById(req.params.id);
 
-  res.json({ success: true, message: "Member rejected" });
+    if (!member) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    member.approvalStatus = "REJECTED";
+    member.approvedAt = new Date();
+    member.approvedBy = "ADMIN";
+    await member.save();
+
+    res.json({
+      success: true,
+      message: "Member rejected"
+    });
+  } catch (err) {
+    console.error("Reject error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 module.exports = router;

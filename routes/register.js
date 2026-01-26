@@ -17,10 +17,7 @@ const fileFilter = (req, file, cb) => {
   ) {
     cb(null, true);
   } else {
-    cb(
-      new Error("Only image or PDF files are allowed"),
-      false
-    );
+    cb(new Error("Only image or PDF files are allowed"), false);
   }
 };
 
@@ -31,9 +28,42 @@ const upload = multer({
 });
 
 /* ======================================================
-   REGISTER API (RAZORPAY VERIFIED)
+   CHECK DUPLICATE MOBILE (BEFORE PAYMENT)
 ====================================================== */
+router.post("/check-mobile", async (req, res) => {
+  try {
+    const { mobile } = req.body;
 
+    if (!mobile) {
+      return res.status(400).json({
+        exists: false,
+        message: "Mobile number is required"
+      });
+    }
+
+    const existing = await Member.findOne({ mobile });
+
+    if (existing) {
+      return res.json({
+        exists: true,
+        message: "This mobile number is already registered"
+      });
+    }
+
+    return res.json({ exists: false });
+
+  } catch (err) {
+    console.error("Check mobile error:", err);
+    return res.status(500).json({
+      exists: false,
+      message: "Server error"
+    });
+  }
+});
+
+/* ======================================================
+   REGISTER API (PAYMENT DONE → ADMIN APPROVAL PENDING)
+====================================================== */
 router.post(
   "/",
   upload.fields([
@@ -42,7 +72,7 @@ router.post(
   ]),
   async (req, res) => {
     try {
-      /* ========= REQUIRED FILE CHECK ========= */
+      /* ========= FILE CHECK ========= */
       if (!req.files?.photo || !req.files?.idProof) {
         return res.status(400).json({
           success: false,
@@ -51,21 +81,15 @@ router.post(
       }
 
       /* ========= PAYMENT CHECK ========= */
-      if (
-        !req.body.paymentId ||
-        req.body.paymentStatus !== "PAID"
-      ) {
+      if (!req.body.paymentId) {
         return res.status(400).json({
           success: false,
           message: "Payment not verified"
         });
       }
 
-      /* ========= DUPLICATE PROTECTION ========= */
-      const existing = await Member.findOne({
-        mobile: req.body.mobile
-      });
-
+      /* ========= DUPLICATE CHECK (SECURITY) ========= */
+      const existing = await Member.findOne({ mobile: req.body.mobile });
       if (existing) {
         return res.status(400).json({
           success: false,
@@ -75,7 +99,7 @@ router.post(
 
       /* ========= CLOUDINARY UPLOAD ========= */
       const uploadToCloudinary = async (file, folder) => {
-        return await cloudinary.uploader.upload(
+        return cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
           {
             folder,
@@ -109,20 +133,19 @@ router.post(
         membershipType: req.body.membershipType,
         amount: req.body.amount,
 
-        // ✅ FILE URLS
         photo: photoUpload.secure_url,
         idProof: idProofUpload.secure_url,
 
-        // ✅ PAYMENT INFO
         paymentId: req.body.paymentId,
-        paymentStatus: "PAID"
+        paymentVerified: true,
+        approvalStatus: "PENDING"
       });
 
       await member.save();
 
       return res.status(201).json({
         success: true,
-        message: "Registration successful"
+        message: "Registration submitted. Awaiting admin approval"
       });
 
     } catch (error) {

@@ -3,22 +3,9 @@ const mongoose = require("mongoose");
 const MemberSchema = new mongoose.Schema(
   {
     /* ================= BASIC DETAILS ================= */
-    fullName: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    fatherName: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    dob: {
-      type: Date,
-      required: true
-    },
+    fullName: { type: String, required: true, trim: true },
+    fatherName: { type: String, required: true, trim: true },
+    dob: { type: Date, required: true },
 
     gender: {
       type: String,
@@ -26,7 +13,7 @@ const MemberSchema = new mongoose.Schema(
       required: true
     },
 
-    /* ================= CONTACT DETAILS ================= */
+    /* ================= CONTACT ================= */
     mobile: {
       type: String,
       required: true,
@@ -38,59 +25,31 @@ const MemberSchema = new mongoose.Schema(
       type: String,
       required: true,
       lowercase: true,
-      trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email"]
+      trim: true
     },
 
-    address: {
-      type: String,
-      required: true
-    },
-
-    city: {
-      type: String,
-      required: true
-    },
-
-    pincode: {
-      type: String,
-      required: true,
-      match: [/^\d{6}$/, "Invalid pincode"]
-    },
-
-    state: {
-      type: String,
-      required: true
-    },
+    address: String,
+    city: String,
+    pincode: String,
+    state: String,
 
     /* ================= MEMBERSHIP ================= */
     membershipType: {
       type: String,
-      required: true,
       enum: [
         "General Member",
         "District Member",
         "State Member",
         "National Member"
-      ]
+      ],
+      required: true
     },
 
-    amount: {
-      type: Number,
-      required: true,
-      min: 0
-    },
+    amount: { type: Number, required: true },
 
     /* ================= FILES ================= */
-    photo: {
-      type: String,
-      required: true
-    },
-
-    idProof: {
-      type: String,
-      required: true
-    },
+    photo: { type: String, required: true },
+    idProof: { type: String, required: true },
 
     /* ================= PAYMENT ================= */
     paymentId: {
@@ -99,21 +58,37 @@ const MemberSchema = new mongoose.Schema(
       index: true
     },
 
-    paymentStatus: {
-      type: String,
-      enum: ["PAID"],
-      default: "PAID",
-      index: true
-    },
-
     paymentMode: {
       type: String,
       default: "RAZORPAY"
     },
 
-    paymentNote: {
+    paymentVerified: {
+      type: Boolean,
+      default: true // Razorpay verify
+    },
+
+    /* ================= ADMIN APPROVAL ================= */
+    approvalStatus: {
       type: String,
-      default: "Registration fee is non-refundable"
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: "PENDING",
+      index: true
+    },
+
+    approvalNote: {
+      type: String,
+      default: "Pending admin verification"
+    },
+
+    approvedAt: {
+      type: Date,
+      default: null
+    },
+
+    approvedBy: {
+      type: String,
+      default: null
     },
 
     /* ================= SYSTEM ================= */
@@ -128,11 +103,6 @@ const MemberSchema = new mongoose.Schema(
       default: false
     },
 
-    donationReceiptGenerated: {
-      type: Boolean,
-      default: false
-    },
-
     idCardPath: {
       type: String,
       default: null
@@ -143,9 +113,7 @@ const MemberSchema = new mongoose.Schema(
       default: true
     }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Member", MemberSchema);
