@@ -6,9 +6,8 @@ const cloudinary = require("../utils/cloudinary");
 const router = express.Router();
 
 /* ======================================================
-   MULTER CONFIG (MEMORY STORAGE FOR CLOUDINARY)
+   MULTER CONFIG (MEMORY STORAGE)
 ====================================================== */
-
 const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
@@ -19,9 +18,7 @@ const fileFilter = (req, file, cb) => {
     cb(null, true);
   } else {
     cb(
-      new Error(
-        "Invalid file type. Only images (jpg, png, webp) or PDF allowed."
-      ),
+      new Error("Only image or PDF files are allowed"),
       false
     );
   }
@@ -34,27 +31,33 @@ const upload = multer({
 });
 
 /* ======================================================
-   REGISTER API
+   REGISTER API (RAZORPAY VERIFIED)
 ====================================================== */
 
 router.post(
   "/",
   upload.fields([
     { name: "photo", maxCount: 1 },
-    { name: "idProof", maxCount: 1 },
-    { name: "paymentScreenshot", maxCount: 1 }
+    { name: "idProof", maxCount: 1 }
   ]),
   async (req, res) => {
     try {
       /* ========= REQUIRED FILE CHECK ========= */
+      if (!req.files?.photo || !req.files?.idProof) {
+        return res.status(400).json({
+          success: false,
+          message: "Photo and ID Proof are required"
+        });
+      }
+
+      /* ========= PAYMENT CHECK ========= */
       if (
-        !req.files?.photo ||
-        !req.files?.idProof ||
-        !req.files?.paymentScreenshot
+        !req.body.paymentId ||
+        req.body.paymentStatus !== "PAID"
       ) {
         return res.status(400).json({
           success: false,
-          message: "Photo, ID Proof and Payment Screenshot are required"
+          message: "Payment not verified"
         });
       }
 
@@ -70,7 +73,7 @@ router.post(
         });
       }
 
-      /* ========= CLOUDINARY UPLOAD HELPER ========= */
+      /* ========= CLOUDINARY UPLOAD ========= */
       const uploadToCloudinary = async (file, folder) => {
         return await cloudinary.uploader.upload(
           `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
@@ -81,7 +84,6 @@ router.post(
         );
       };
 
-      /* ========= UPLOAD FILES ========= */
       const photoUpload = await uploadToCloudinary(
         req.files.photo[0],
         "ngo/photos"
@@ -90,11 +92,6 @@ router.post(
       const idProofUpload = await uploadToCloudinary(
         req.files.idProof[0],
         "ngo/idproofs"
-      );
-
-      const paymentUpload = await uploadToCloudinary(
-        req.files.paymentScreenshot[0],
-        "ngo/payments"
       );
 
       /* ========= CREATE MEMBER ========= */
@@ -112,19 +109,20 @@ router.post(
         membershipType: req.body.membershipType,
         amount: req.body.amount,
 
-        // ✅ CLOUDINARY URLs
+        // ✅ FILE URLS
         photo: photoUpload.secure_url,
         idProof: idProofUpload.secure_url,
-        paymentScreenshot: paymentUpload.secure_url,
 
-        paymentStatus: "pending"
+        // ✅ PAYMENT INFO
+        paymentId: req.body.paymentId,
+        paymentStatus: "PAID"
       });
 
       await member.save();
 
       return res.status(201).json({
         success: true,
-        message: "Registration successful. Payment pending verification."
+        message: "Registration successful"
       });
 
     } catch (error) {

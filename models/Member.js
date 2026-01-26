@@ -5,19 +5,19 @@ const MemberSchema = new mongoose.Schema(
     /* ================= BASIC DETAILS ================= */
     fullName: {
       type: String,
-      required: [true, "Full name is required"],
+      required: true,
       trim: true
     },
 
     fatherName: {
       type: String,
-      required: [true, "Father/Spouse name is required"],
+      required: true,
       trim: true
     },
 
     dob: {
       type: Date,
-      required: [true, "Date of birth is required"]
+      required: true
     },
 
     gender: {
@@ -29,14 +29,14 @@ const MemberSchema = new mongoose.Schema(
     /* ================= CONTACT DETAILS ================= */
     mobile: {
       type: String,
-      required: [true, "Mobile number is required"],
+      required: true,
       match: [/^[6-9]\d{9}$/, "Invalid mobile number"],
       index: true
     },
 
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Invalid email"]
@@ -68,9 +68,10 @@ const MemberSchema = new mongoose.Schema(
       type: String,
       required: true,
       enum: [
-        "District President",
+        "General Member",
+        "District Member",
         "State Member",
-        "General Member"
+        "National Member"
       ]
     },
 
@@ -83,38 +84,39 @@ const MemberSchema = new mongoose.Schema(
     /* ================= FILES ================= */
     photo: {
       type: String,
-      required: [true, "Photo is required"]
+      required: true
     },
 
     idProof: {
       type: String,
-      required: [true, "ID Proof is required"]
+      required: true
     },
 
-    paymentScreenshot: {
+    /* ================= PAYMENT ================= */
+    paymentId: {
       type: String,
-      required: [true, "Payment screenshot is required"]
-    },
-
-    /* ================= PAYMENT STATUS ================= */
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
+      required: true,
       index: true
     },
 
-    paymentVerifiedBy: {
+    paymentStatus: {
       type: String,
-      default: null
+      enum: ["PAID"],
+      default: "PAID",
+      index: true
     },
 
-    paymentVerifiedAt: {
-      type: Date,
-      default: null
+    paymentMode: {
+      type: String,
+      default: "RAZORPAY"
     },
 
-    /* ================= AUTO GENERATED ================= */
+    paymentNote: {
+      type: String,
+      default: "Registration fee is non-refundable"
+    },
+
+    /* ================= SYSTEM ================= */
     memberId: {
       type: String,
       unique: true,
@@ -130,17 +132,19 @@ const MemberSchema = new mongoose.Schema(
       type: Boolean,
       default: false
     },
-idCardPath: {
-  type: String
-},
-    /* ================= SYSTEM ================= */
+
+    idCardPath: {
+      type: String,
+      default: null
+    },
+
     isActive: {
       type: Boolean,
       default: true
     }
   },
   {
-    timestamps: true // createdAt & updatedAt auto
+    timestamps: true
   }
 );
 

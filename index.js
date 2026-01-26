@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const paymentRoutes = require("./routes/payment");
 
 const connectDB = require("./config/db");
 
@@ -22,6 +23,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/register", require("./routes/register"));
 app.use("/api/admin", require("./routes/adminLogin"));
 app.use("/api/admin", require("./routes/admin"));
+app.use("/api/payment", paymentRoutes);
 
 /* Test */
 app.get("/", (req, res) => {
