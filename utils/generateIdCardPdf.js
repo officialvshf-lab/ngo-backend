@@ -95,7 +95,7 @@ const validTill = formatDate(validityDate);
 
     ctx.fillText(
       "Email: officialvshf@gmail.com, www.vishwasanatanhindu.in, 9910307602 / 9315529789",
-      50,
+      40,
       372
     );
 
