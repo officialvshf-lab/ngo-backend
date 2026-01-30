@@ -65,7 +65,7 @@ const MemberSchema = new mongoose.Schema(
 
     paymentVerified: {
       type: Boolean,
-      default: true // Razorpay verify
+      default: true
     },
 
     /* ================= ADMIN APPROVAL ================= */
@@ -91,13 +91,7 @@ const MemberSchema = new mongoose.Schema(
       default: null
     },
 
-    /* ================= SYSTEM ================= */
-    memberId: {
-      type: String,
-      unique: true,
-      sparse: true
-    },
-
+    /* ================= DOCUMENTS ================= */
     idCardGenerated: {
       type: Boolean,
       default: false
@@ -106,6 +100,18 @@ const MemberSchema = new mongoose.Schema(
     idCardPath: {
       type: String,
       default: null
+    },
+
+    nyuktiPatraPath: {
+      type: String,
+      default: null
+    },
+
+    /* ================= SYSTEM ================= */
+    memberId: {
+      type: String,
+      unique: true,
+      sparse: true
     },
 
     isActive: {

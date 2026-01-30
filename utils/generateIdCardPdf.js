@@ -11,6 +11,24 @@ module.exports = async function generateIdCardPdf(member) {
     const canvas = createCanvas(width, height);
     const ctx = canvas.getContext("2d");
 
+
+    const today = new Date();
+
+// Format date (DD-MM-YYYY)
+const formatDate = (date) => {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+};
+
+const issueDate = formatDate(today);
+
+// Add 1 year for validity
+const validityDate = new Date(today);
+validityDate.setFullYear(validityDate.getFullYear() + 1);
+const validTill = formatDate(validityDate);
+
     /* ================= BACKGROUND ================= */
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
@@ -46,6 +64,8 @@ module.exports = async function generateIdCardPdf(member) {
     ctx.fillText(`Mobile: ${member.mobile}`, 30, 170);
     ctx.fillText(`Membership: ${member.membershipType}`, 30, 200);
     ctx.fillText(`State: ${member.state}`, 30, 230);
+    ctx.fillText(`Issue Date: ${issueDate}`, 30, 260);
+    ctx.fillText(`Valid Till: ${validTill}`, 30, 290);
 
     /* ================= PHOTO BOX ================= */
     ctx.strokeStyle = "#000";
@@ -68,14 +88,14 @@ module.exports = async function generateIdCardPdf(member) {
     ctx.fillStyle = "#ffffff";
     ctx.font = "14px Arial";
     ctx.fillText(
-      `Address: District Bulandsher, Tehsil Syana, Post Bugrasi, Village Ravani Kateri`,
+      `Address: District Bulandsher, Tehsil Syana, Post Bugrasi, Village Ravani Kateri,`,
       50,
       350
     );
 
     ctx.fillText(
-      "9910307602 / 9315529789",
-      220,
+      "Email: officialvshf@gmail.com, www.vishwasanatanhindu.in, 9910307602 / 9315529789",
+      50,
       372
     );
 
